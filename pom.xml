@@ -1,0 +1,119 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.github.yiding-he</groupId>
+  <artifactId>google-takeout-photo-browser</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <url>https://github.com/yiding-he/google-takeout-photo-browser</url>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.test.skip>true</maven.test.skip>
+    <maven.compiler.source>15</maven.compiler.source>
+    <maven.compiler.target>15</maven.compiler.target>
+    <main.class>com.hyd.gtpb.GoogleTakeoutPhotoBrowserMain</main.class>
+  </properties>
+
+  <repositories>
+    <repository>
+      <id>china-mainland-mirror</id>
+      <url>http://maven.aliyun.com/nexus/content/groups/public/</url>
+    </repository>
+  </repositories>
+
+  <dependencies>
+
+    <!-- Basic requirements -->
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.12</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.2.3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>1.18.12</version>
+      <optional>true</optional>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.openjfx/javafx-controls -->
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-controls</artifactId>
+      <version>15</version>
+    </dependency>
+
+    <!-- https://github.com/yiding-he/hydrogen-fx -->
+    <dependency>
+      <groupId>com.hyd</groupId>
+      <artifactId>hydrogen-fx</artifactId>
+      <version>2.0-SNAPSHOT</version>
+      <scope>system</scope>
+      <systemPath>${project.basedir}/lib/hydrogen-fx-2.0-SNAPSHOT.jar</systemPath>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!--
+      运行方式：执行 mvn javafx:run
+      运行说明：因为很多开发人员电脑上多个JRE并存，默认PATH下的JRE版本不一定是15，
+      因此请先设置环境变量JDK_15_HOME指向JDK15的目录。
+       -->
+      <plugin>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-maven-plugin</artifactId>
+        <version>0.0.5</version>
+        <configuration>
+          <mainClass>${main.class}</mainClass>
+          <executable>${env.JDK_15_HOME}/bin/java.exe</executable>
+        </configuration>
+      </plugin>
+
+      <!--
+      在 JDK15 环境中直接执行 mvn package 即可打包成附带 JRE 的 exe 可执行文件
+      -->
+      <plugin>
+        <groupId>io.github.fvarrui</groupId>
+        <artifactId>javapackager</artifactId>
+        <version>1.4.2</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>package</goal>
+            </goals>
+            <configuration>
+              <!-- 需要查看控制台输出的话再打开下面这个配置 -->
+              <!--
+              <winConfig>
+                <headerType>console</headerType>
+              </winConfig>
+              -->
+              <name>google-takeout-photo-browser</name>
+              <vmArgs>--add-opens java.base/jdk.internal.loader=ALL-UNNAMED</vmArgs>
+              <displayName>xJavaFxTool</displayName>
+              <jrePath>${env.JDK_15_HOME}</jrePath>
+              <mainClass>${main.class}</mainClass>
+              <bundleJre>true</bundleJre>
+              <generateInstaller>false</generateInstaller>
+              <administratorRequired>false</administratorRequired>
+              <platform>auto</platform>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
