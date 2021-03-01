@@ -8,8 +8,10 @@ import com.hyd.fx.cells.ListCellFactory;
 import com.hyd.fx.concurrency.BackgroundTask;
 import com.hyd.fx.dialog.AlertDialog;
 import com.hyd.fx.enhancements.ListViewEnhancements;
+import com.hyd.gtpb.SimpleImaging;
 import com.hyd.gtpb.archive.Album;
 import com.hyd.gtpb.archive.GoogleTakeoutArchive;
+import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
@@ -22,6 +24,7 @@ import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 
 import java.io.File;
+import java.util.Comparator;
 import java.util.List;
 
 import static com.hyd.fx.builders.LayoutBuilder.vbox;
@@ -36,9 +39,12 @@ public class MainPanel extends BorderPane {
 
   public MainPanel() {
 
-    albumListView.setCellFactory(new ListCellFactory<Album>().withTextFunction(Album::getName));
-    ListViewEnhancements.onSelectionChanged(albumListView, this::albumSelected);
+    albumListView.setCellFactory(new ListCellFactory<Album>()
+      .withTextFunction(album -> album.getName() + "(" + album.getImageCount() + ")"));
 
+    albumListView.setMaxWidth(300);
+    ListViewEnhancements.onSelectionChanged(albumListView, this::albumSelected);
+    photosPane.setPadding(new Insets(10));
     setCenter(ButtonBuilder.button("Open archive directory...", this::openArchiveDirectory));
   }
 
@@ -47,13 +53,16 @@ public class MainPanel extends BorderPane {
     photosPane.getChildren().clear();
 
     BackgroundTask.runTask(() -> {
-      List<Image> images = GoogleTakeoutArchive.getInstance().readImages(album);
-      AppThread.runUIThread(() -> {
-        for (Image image : images) {
-          photosPane.getChildren().add(ImageBuilder.imageView(image, 300));
+      GoogleTakeoutArchive.getInstance().forEachImage(album, image -> AppThread.runUIThread(() -> {
+        Image scaled = SimpleImaging.scale(image, 300, 300);
+        if (scaled != null) {
+          photosPane.getChildren().add(ImageBuilder.imageView(scaled, 300));
         }
-        albumTitleLabel.setText(album.getName() + "(" + images.size() + " photos) : " + album.getZipFile().getName());
-      });
+      }));
+
+      AppThread.runUIThread(() -> albumTitleLabel.setText(album.getName() +
+        "(" + album.getImageCount() + " photos) : " + album.getZipFile().getName()));
+
     }).whenTaskFinish(() -> AppThread.runUIThread(
       () -> albumListView.setDisable(false)
     )).start();
@@ -87,6 +96,9 @@ public class MainPanel extends BorderPane {
     ));
 
     VBox.setVgrow(scrollPane, Priority.ALWAYS);
-    albumListView.getItems().addAll(GoogleTakeoutArchive.getInstance().getAlbums());
+    List<Album> albums = GoogleTakeoutArchive.getInstance().getAlbums();
+    albums.sort(Comparator.comparing(Album::getName));
+
+    albumListView.getItems().addAll(albums);
   }
 }

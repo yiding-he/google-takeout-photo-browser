@@ -52,6 +52,18 @@
       <artifactId>javafx-controls</artifactId>
       <version>15</version>
     </dependency>
+    <!-- https://mvnrepository.com/artifact/org.openjfx/javafx-media -->
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-media</artifactId>
+      <version>15</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/org.openjfx/javafx-swing -->
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-swing</artifactId>
+      <version>15</version>
+    </dependency>
 
     <!-- https://github.com/yiding-he/hydrogen-fx -->
     <dependency>
@@ -62,6 +74,11 @@
       <systemPath>${project.basedir}/lib/hydrogen-fx-2.0-SNAPSHOT.jar</systemPath>
     </dependency>
 
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>2.8.0</version>
+    </dependency>
   </dependencies>
 
   <build>

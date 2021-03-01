@@ -8,6 +8,8 @@ public class Album {
 
   private final EntryPath entryPath;
 
+  private int imageCount;
+
   public Album(File zipFile, EntryPath entryPath) {
     this.zipFile = zipFile;
     this.entryPath = entryPath;
@@ -23,5 +25,13 @@ public class Album {
 
   public EntryPath getEntryPath() {
     return entryPath;
+  }
+
+  public void addImageCount() {
+    this.imageCount += 1;
+  }
+
+  public int getImageCount() {
+    return imageCount;
   }
 }

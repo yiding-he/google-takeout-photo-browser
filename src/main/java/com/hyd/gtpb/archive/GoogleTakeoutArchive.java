@@ -7,10 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
+import java.util.function.Consumer;
 
 @Slf4j
 public class GoogleTakeoutArchive {
@@ -27,13 +25,15 @@ public class GoogleTakeoutArchive {
 
   private File archiveFolder;
 
-  private List<Album> albums = new ArrayList<>();
+  private AlbumManager albumManager;
 
   public List<Album> getAlbums() {
-    return albums;
+    return albumManager.getAlbums();
   }
 
   public GoogleTakeoutArchive(File archiveFolder) {
+    this.albumManager = new AlbumManager();
+
     File[] zipFiles = archiveFolder.listFiles(pathname -> pathname.isFile() && pathname.getName().endsWith(".zip"));
     if (zipFiles == null || zipFiles.length == 0) {
       throw new IllegalStateException("Folder '" + archiveFolder.getAbsolutePath() + "' does not contain any archive files.");
@@ -51,36 +51,33 @@ public class GoogleTakeoutArchive {
     for (File zipFile : zipFiles) {
       scanArchive(zipFile);
     }
-    albums.sort(Comparator.comparing(Album::getName));
   }
 
   private void scanArchive(File zipFile) throws IOException {
     try (ZipFileReader reader = new ZipFileReader(zipFile)) {
-      reader.readZipEntries("**/元数据.json", entry -> {
-        albums.add(new Album(zipFile, new EntryPath(entry.getName()).getParent()));
+      reader.readZipEntries("**/*.jpg", entry -> {
+        albumManager.addImage(zipFile, entry);
       });
     }
   }
 
-  public List<Image> readImages(Album album) {
-    List<Image> images = new ArrayList<>();
-
+  public void forEachImage(Album album, Consumer<Image> imageConsumer) {
     try (ZipFileReader reader = new ZipFileReader(album.getZipFile())) {
       reader.readZipEntries(album.getEntryPath().getPath() + "/*", zipEntry -> {
         if (!zipEntry.isDirectory() && (
           zipEntry.getName().endsWith(".jpg") || zipEntry.getName().endsWith(".png") || zipEntry.getName().endsWith(".gif")
         )) {
           try {
-            images.add(new Image(reader.getInputStream(zipEntry)));
+            Image image = new Image(reader.getInputStream(zipEntry));
+            imageConsumer.accept(image);
+            image = null;
           } catch (IOException e) {
             log.error("", e);
           }
         }
       });
-      return images;
     } catch (IOException e) {
       AlertDialog.error("Error reading archive file '" + album.getZipFile().getName() + "'", e);
-      return Collections.emptyList();
     }
   }
 }
