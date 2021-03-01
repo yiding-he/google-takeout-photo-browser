@@ -2,6 +2,7 @@ package com.hyd.gtpb.archive;
 
 import com.hyd.fx.dialog.AlertDialog;
 import com.hyd.fx.system.ZipFileReader;
+import com.hyd.gtpb.SimpleImaging;
 import javafx.scene.image.Image;
 import lombok.extern.slf4j.Slf4j;
 
@@ -61,16 +62,22 @@ public class GoogleTakeoutArchive {
     }
   }
 
-  public void forEachImage(Album album, Consumer<Image> imageConsumer) {
+  public void forEachImage(Album album, Consumer<AlbumImage> imageConsumer) {
     try (ZipFileReader reader = new ZipFileReader(album.getZipFile())) {
       reader.readZipEntries(album.getEntryPath().getPath() + "/*", zipEntry -> {
-        if (!zipEntry.isDirectory() && (
-          zipEntry.getName().endsWith(".jpg") || zipEntry.getName().endsWith(".png") || zipEntry.getName().endsWith(".gif")
-        )) {
+        if (!zipEntry.isDirectory() && (zipEntry.getName().endsWith(".jpg"))) {
           try {
+            String zipPath = album.getZipFile().getAbsolutePath();
             Image image = new Image(reader.getInputStream(zipEntry));
-            imageConsumer.accept(image);
+            Image thumbnail = SimpleImaging.scale(image, 300, 300);
             image = null;
+
+            if (thumbnail != null) {
+              imageConsumer.accept(new AlbumImage(
+                zipPath, zipEntry.getName(), thumbnail));
+            } else {
+              log.error("Failed creating thumbnail for {}!{}", zipPath, zipEntry.getName());
+            }
           } catch (IOException e) {
             log.error("", e);
           }

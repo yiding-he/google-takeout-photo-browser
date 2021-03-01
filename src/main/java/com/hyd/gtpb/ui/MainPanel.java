@@ -4,31 +4,40 @@ import com.hyd.fx.app.AppPrimaryStage;
 import com.hyd.fx.app.AppThread;
 import com.hyd.fx.builders.ButtonBuilder;
 import com.hyd.fx.builders.ImageBuilder;
+import com.hyd.fx.builders.MenuBuilder;
 import com.hyd.fx.cells.ListCellFactory;
 import com.hyd.fx.concurrency.BackgroundTask;
 import com.hyd.fx.dialog.AlertDialog;
+import com.hyd.fx.dialog.BasicDialog;
+import com.hyd.fx.dialog.DialogBuilder;
 import com.hyd.fx.enhancements.ListViewEnhancements;
-import com.hyd.gtpb.SimpleImaging;
+import com.hyd.fx.system.ClipboardHelper;
+import com.hyd.fx.system.ZipFileReader;
+import com.hyd.gtpb.Value;
 import com.hyd.gtpb.archive.Album;
+import com.hyd.gtpb.archive.AlbumImage;
 import com.hyd.gtpb.archive.GoogleTakeoutArchive;
+import javafx.geometry.BoundingBox;
 import javafx.geometry.Insets;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.SplitPane;
+import javafx.scene.control.*;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.Stage;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
 
 import static com.hyd.fx.builders.LayoutBuilder.vbox;
 
+@Slf4j
 public class MainPanel extends BorderPane {
 
   private final Label albumTitleLabel = new Label();
@@ -54,10 +63,7 @@ public class MainPanel extends BorderPane {
 
     BackgroundTask.runTask(() -> {
       GoogleTakeoutArchive.getInstance().forEachImage(album, image -> AppThread.runUIThread(() -> {
-        Image scaled = SimpleImaging.scale(image, 300, 300);
-        if (scaled != null) {
-          photosPane.getChildren().add(ImageBuilder.imageView(scaled, 300));
-        }
+        photosPane.getChildren().add(buildThumbnailImageView(image));
       }));
 
       AppThread.runUIThread(() -> albumTitleLabel.setText(album.getName() +
@@ -66,6 +72,63 @@ public class MainPanel extends BorderPane {
     }).whenTaskFinish(() -> AppThread.runUIThread(
       () -> albumListView.setDisable(false)
     )).start();
+  }
+
+  private ImageView buildThumbnailImageView(AlbumImage albumImage) {
+    ImageView imageView = ImageBuilder.imageView(albumImage.getThumbnail(), 300);
+    imageView.setOnMouseClicked(mouseEvent -> {
+      if (mouseEvent.getClickCount() == 2) {
+        showImage(albumImage.getZipFile(), albumImage.getPath());
+      }
+    });
+    return imageView;
+  }
+
+  private Value<BoundingBox> imageDialogBounds = Value.empty();
+
+  private void showImage(String zipFile, String path) {
+
+    final ImageView imageView = new ImageView();
+    imageView.setOnContextMenuRequested(e -> {
+      ImageView iv = (ImageView) e.getSource();
+      MenuBuilder.contextMenu(
+        MenuBuilder.menuItem("复制", () -> ClipboardHelper.putImage(iv.getImage()))
+      ).show(iv, e.getScreenX(), e.getScreenY());
+    });
+
+    ScrollPane sp = new ScrollPane(imageView);
+    sp.setPannable(true);
+
+    BorderPane root = new BorderPane(sp);
+    root.setPadding(new Insets(10));
+    root.setPrefWidth(800);
+    root.setPrefHeight(600);
+
+    new DialogBuilder().buttons(ButtonType.CLOSE)
+      .onButtonClicked(ButtonType.CLOSE, e -> ((Stage) ((Button) e.getSource()).getScene().getWindow()).close())
+      .body(root)
+      .resizable(true)
+      .onStageShown(e -> {
+        BasicDialog s = (BasicDialog) e.getSource();
+        s.setOnCloseRequest(r -> imageDialogBounds.set(
+          new BoundingBox(s.getX(), s.getY(), s.getWidth(), s.getHeight())
+        ));
+        if (!imageDialogBounds.isEmpty()) {
+          s.setX(imageDialogBounds.get().getMinX());
+          s.setY(imageDialogBounds.get().getMinY());
+          s.setWidth(imageDialogBounds.get().getWidth());
+          s.setHeight(imageDialogBounds.get().getHeight());
+        }
+        new Thread(() -> {
+          try {
+            Image image = new Image(new ZipFileReader(zipFile).readZipEntryStream(path));
+            AppThread.runUIThread(() -> imageView.setImage(image));
+          } catch (IOException ee) {
+            log.error("", ee);
+          }
+        }).start();
+      })
+      .build().show();
   }
 
   private void openArchiveDirectory() {
