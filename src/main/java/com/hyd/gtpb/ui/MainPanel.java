@@ -6,6 +6,7 @@ import com.hyd.fx.builders.ButtonBuilder;
 import com.hyd.fx.builders.ImageBuilder;
 import com.hyd.fx.builders.MenuBuilder;
 import com.hyd.fx.cells.ListCellFactory;
+import com.hyd.fx.components.ImageViewer;
 import com.hyd.fx.concurrency.BackgroundTask;
 import com.hyd.fx.dialog.AlertDialog;
 import com.hyd.fx.dialog.BasicDialog;
@@ -26,6 +27,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +38,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import static com.hyd.fx.builders.LayoutBuilder.vbox;
+import static com.hyd.fx.style.FxBorderBuilder.border;
 
 @Slf4j
 public class MainPanel extends BorderPane {
@@ -84,22 +87,29 @@ public class MainPanel extends BorderPane {
     return imageView;
   }
 
-  private Value<BoundingBox> imageDialogBounds = Value.empty();
+  private Value<BoundingBox> savedWindowLocation = Value.empty();
 
   private void showImage(String zipFile, String path) {
 
-    final ImageView imageView = new ImageView();
-    imageView.setOnContextMenuRequested(e -> {
-      ImageView iv = (ImageView) e.getSource();
+    ImageViewer imageViewer = new ImageViewer();
+    imageViewer.setBorder(border(Color.web("#cccccc"), 1));
+    imageViewer.setPannable(true);
+    imageViewer.setImageDropShadow(true);
+    imageViewer.setOnScroll(scrollEvent -> {
+      if (scrollEvent.getDeltaY() > 0) {
+        imageViewer.zoomIn();
+      } else {
+        imageViewer.zoomOut();
+      }
+    });
+    imageViewer.setOnContextMenuRequested(e -> {
+      ImageViewer iv = (ImageViewer) e.getSource();
       MenuBuilder.contextMenu(
         MenuBuilder.menuItem("复制", () -> ClipboardHelper.putImage(iv.getImage()))
       ).show(iv, e.getScreenX(), e.getScreenY());
     });
 
-    ScrollPane sp = new ScrollPane(imageView);
-    sp.setPannable(true);
-
-    BorderPane root = new BorderPane(sp);
+    BorderPane root = new BorderPane(imageViewer);
     root.setPadding(new Insets(10));
     root.setPrefWidth(800);
     root.setPrefHeight(600);
@@ -110,19 +120,19 @@ public class MainPanel extends BorderPane {
       .resizable(true)
       .onStageShown(e -> {
         BasicDialog s = (BasicDialog) e.getSource();
-        s.setOnCloseRequest(r -> imageDialogBounds.set(
+        s.setOnCloseRequest(r -> savedWindowLocation.set(
           new BoundingBox(s.getX(), s.getY(), s.getWidth(), s.getHeight())
         ));
-        if (!imageDialogBounds.isEmpty()) {
-          s.setX(imageDialogBounds.get().getMinX());
-          s.setY(imageDialogBounds.get().getMinY());
-          s.setWidth(imageDialogBounds.get().getWidth());
-          s.setHeight(imageDialogBounds.get().getHeight());
+        if (!savedWindowLocation.isEmpty()) {
+          s.setX(savedWindowLocation.get().getMinX());
+          s.setY(savedWindowLocation.get().getMinY());
+          s.setWidth(savedWindowLocation.get().getWidth());
+          s.setHeight(savedWindowLocation.get().getHeight());
         }
         new Thread(() -> {
           try {
             Image image = new Image(new ZipFileReader(zipFile).readZipEntryStream(path));
-            AppThread.runUIThread(() -> imageView.setImage(image));
+            AppThread.runUIThread(() -> imageViewer.setImage(image));
           } catch (IOException ee) {
             log.error("", ee);
           }
